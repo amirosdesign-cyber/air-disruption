@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Air Disruption</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css?v=31">
+  <script src="https://cdn.jsdelivr.net/npm/p5@1.11.1/lib/p5.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/topojson-client@3.1.0/dist/topojson-client.min.js"></script>
+</head>
+<body>
+  <aside id="panel">
+    <header>
+      <div class="eyebrow">AIR DISRUPTION
+        <span class="icons">
+          <button id="info-btn" class="icon" aria-label="About this view and its data" title="About this view and its data">i</button>
+          <button id="settings-btn" class="icon" aria-label="Settings" title="Settings">⚙</button>
+        </span>
+      </div>
+      <h1>London Heathrow</h1>
+      <div class="case">North Hyde substation fire · 20–22 Mar 2025</div>
+      <p class="lede" id="case-desc"></p>
+      <p class="warn" id="case-warn"></p>
+    </header>
+
+    <nav class="cases" id="cases" aria-label="Event">
+      <button data-case="fra2025">Frankfurt<small>Mar 2025</small></button>
+      <button data-case="lhr2025">Heathrow<small>Mar 2025</small></button>
+      <button data-case="fz2026">flydubai<small>Sep 2026</small></button>
+    </nav>
+
+    <nav class="modes" id="modes" aria-label="Visualization">
+      <button data-mode="flow" class="mode-main">Flow</button>
+      <button data-mode="network">Network</button>
+      <button data-mode="traces">Traces</button>
+      <button data-mode="field">Field</button>
+    </nav>
+
+    <section class="metrics" id="metrics" aria-live="polite"></section>
+
+    <section class="transport">
+      <button id="play" class="primary">Pause</button>
+      <div class="seg" id="period">
+        <button data-period="before">Before</button><button data-period="during">Disruption</button><button data-period="after">After</button>
+      </div>
+      <button id="motion" data-for="flow" title="Freeze the moving dots too">Stop motion</button>
+    </section>
+  </aside>
+
+  <!-- secondary layers: methodology / sources, and settings -->
+  <div class="sheet" id="info" hidden>
+    <div class="sheet-head"><span>About this view</span><button class="icon close" data-close="info" aria-label="Close">×</button></div>
+    <div id="info-body"></div>
+  </div>
+
+  <div class="sheet" id="settings" hidden>
+    <div class="sheet-head"><span>Settings</span><button class="icon close" data-close="settings" aria-label="Close">×</button></div>
+    <section class="controls">
+      <h3>Playback</h3>
+      <label class="row">Screen time per phase
+        <select id="phasesec"><option value="8">8 s</option><option value="12" selected>12 s</option><option value="16">16 s</option><option value="20">20 s</option></select>
+      </label>
+      <label class="row">Clock outside the event window
+        <select id="speed">
+          <option value="0.5">0.5 h/s</option><option value="1">1 h/s</option>
+          <option value="2" selected>2 h/s</option><option value="4">4 h/s</option><option value="8">8 h/s</option>
+        </select>
+      </label>
+
+      <h3>Data selection <span>changes which flights count</span></h3>
+      <div class="seg" id="dir">
+        <button data-dir="all">All</button><button data-dir="dep">Departures</button><button data-dir="arr">Arrivals</button>
+      </div>
+      <label class="check"><input type="checkbox" id="airline"> Airline callsigns only <small>(ICAO format, no helicopters)</small></label>
+      <label class="row">Reference period
+        <select id="ref"><option value="before">Before · 14–20 Mar</option><option value="after">After · 24–30 Mar</option></select>
+      </label>
+      <label class="row" data-for="flow">Emission window <output id="o-rate"></output>
+        <input type="range" id="rate" min="1" max="12" step="1">
+      </label>
+      <label class="row" data-for="field">Window <output id="o-window"></output>
+        <input type="range" id="window" min="3" max="72" step="3">
+      </label>
+
+      <h3>Appearance <span>changes only how it looks</span></h3>
+      <label class="row">Line weight <output id="o-weight"></output><input type="range" id="weight" min="0.3" max="3" step="0.1"></label>
+      <label class="row">Opacity <output id="o-opacity"></output><input type="range" id="opacity" min="0.1" max="1" step="0.05"></label>
+      <label class="row" data-for="flow">Trail length <output id="o-trail"></output><input type="range" id="trail" min="0.2" max="5" step="0.1"></label>
+      <label class="row" data-for="flow">Dot density <output id="o-density"></output><input type="range" id="density" min="0.25" max="4" step="0.25"></label>
+      <label class="row" data-for="flow">Dot speed <output id="o-dspeed"></output><input type="range" id="dspeed" min="10" max="120" step="2"></label>
+      <label class="row" data-for="network traces">Trace persistence <output id="o-persist"></output><input type="range" id="persist" min="1" max="120" step="1"></label>
+      <label class="row" data-for="traces">Time span <output id="o-span"></output><input type="range" id="span" min="12" max="240" step="12"></label>
+      <div class="actions">
+        <button id="theme">Light mode</button>
+        <button id="export">Export PNG</button>
+      </div>
+    </section>
+  </div>
+
+  <main id="stage"><div id="msg">Loading data…</div></main>
+
+  <script src="js/config.js?v=31"></script>
+  <script src="js/geo.js?v=31"></script>
+  <script src="js/cases.js?v=31"></script>
+  <script src="js/geolayer.js?v=31"></script>
+  <script src="js/data.js?v=31"></script>
+  <script src="js/schedule.js?v=31"></script>
+  <script src="js/story.js?v=31"></script>
+  <script src="js/board.js?v=31"></script>
+  <script src="js/labels.js?v=31"></script>
+  <script src="js/route.js?v=31"></script>
+  <script src="js/timeline.js?v=31"></script>
+  <script src="js/modes/network.js?v=31"></script>
+  <script src="js/modes/traces.js?v=31"></script>
+  <script src="js/modes/field.js?v=31"></script>
+  <script src="js/modes/flow.js?v=31"></script>
+  <script src="js/info.js?v=31"></script>
+  <script src="js/ui.js?v=31"></script>
+  <script src="js/main.js?v=31"></script>
+</body>
+</html>
